@@ -1,0 +1,110 @@
+name: Sentinela — E2E Quality Gate, Risk Engine & AI Triage
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      chaos_mode:
+        description: 'Inject Chaos Failure Mode to demo AI Triage (none | api_500 | selector_drift | a11y_violation)'
+        required: false
+        default: 'none'
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  risk-analysis:
+    name: Risk Engine (Changed-File Analysis)
+    runs-on: ubuntu-latest
+    outputs:
+      grep_tags: ${{ steps.risk.outputs.grep_tags }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Determine Targeted Test Tags
+        id: risk
+        run: npx tsx scripts/risk-engine.ts
+
+  test:
+    name: Playwright Shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+    needs: risk-analysis
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shardIndex: [1, 2]
+        shardTotal: [2]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright Browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Execute Playwright Tests (Sharded + Risk-Targeted)
+        run: npx playwright test --grep "${{ needs.risk-analysis.outputs.grep_tags }}" --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+        env:
+          CI: true
+          TARGET_ENV: ${{ vars.TARGET_ENV || 'local-sandbox' }}
+          CHAOS_MODE: ${{ github.event.inputs.chaos_mode || 'none' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Post AI Triage Report to GitHub Job Summary & PR
+        if: failure()
+        run: |
+          if [ -f triage-comment.md ]; then
+            cat triage-comment.md >> $GITHUB_STEP_SUMMARY
+          fi
+          npx tsx scripts/post-pr-triage.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+
+      - name: Upload Playwright Traces & AI Triage Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts-shard-${{ matrix.shardIndex }}
+          path: |
+            playwright-report/
+            test-results/
+            triage-report.json
+            triage-comment.md
+          retention-days: 7

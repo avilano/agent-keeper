@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-keeper"
+version = "0.1.0"
+description = "Automated LLM Evaluation and Regression Quality Gate for CI/CD"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "pydantic>=2.5.0",
+    "tenacity>=8.2.0",
+    "groq>=0.9.0",
+    "google-genai>=0.1.1",
+    "tiktoken>=0.7.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-html>=4.1.0",
+    "deepeval>=1.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["evals"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"

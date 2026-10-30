@@ -1,0 +1,81 @@
+name: AI Regression Quality Gate
+
+on:
+  pull_request:
+    paths:
+      - 'src/triage/**'
+      - 'evals/**'
+      - 'pyproject.toml'
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tier1-deterministic:
+    name: "Tier 1: Deterministic Quality Gate"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e .[test]
+
+      - name: Run Schema, PII, and Token Budget Checks
+        run: |
+          pytest evals/deterministic/ -v --tb=short
+
+  tier2-llm-regression:
+    name: "Tier 2: Golden LLM Regression Suite"
+    needs: tier1-deterministic
+    runs-on: ubuntu-latest
+    env:
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Restore Eval Cache
+        uses: actions/cache@v4
+        with:
+          path: .eval_cache
+          key: eval-cache-${{ hashFiles('src/triage/prompts.py', 'evals/datasets/golden_15.jsonl') }}
+          restore-keys: |
+            eval-cache-
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e .[test]
+
+      - name: Run 15-Case Regression Evaluation
+        run: |
+          pytest evals/test_pr_regression.py \
+            -v \
+            --html=eval_report.html \
+            --self-contained-html \
+            --junitxml=eval_results.xml
+
+      - name: Upload HTML Evaluation Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-regression-report
+          path: eval_report.html
