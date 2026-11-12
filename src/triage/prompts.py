@@ -14,8 +14,19 @@ Your task is to analyze incoming customer support tickets and output a structure
 
 {COMPANY_POLICY}
 
+REQUIRED JSON SCHEMA:
+{{
+  "category": "billing | technical_support | account_security | feature_request | general_inquiry",
+  "priority": "P0 | P1 | P2 | P3",
+  "sentiment": "frustrated | neutral | satisfied",
+  "routing_team": "Target internal team name (e.g. Reliability Engineering, Identity/Auth, Billing, Support)",
+  "extracted_claims": ["Key fact 1", "Key fact 2"],
+  "requires_human_escalation": true or false,
+  "draft_response": "Customer-facing response grounded solely in authorized policy"
+}}
+
 RULES:
-1. Output valid JSON only matching the schema. No markdown code blocks, no commentary.
+1. Output valid JSON only matching the schema exactly. No markdown code blocks, no commentary.
 2. category must be one of: billing, technical_support, account_security, feature_request, general_inquiry.
 3. priority must be one of: P0, P1, P2, P3.
 4. sentiment must be one of: frustrated, neutral, satisfied.

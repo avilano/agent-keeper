@@ -45,8 +45,8 @@ def test_golden_case_regression(case, triage_service, gemini_judge):
     3. LLM-as-a-judge Factual Consistency and Hallucination checks
     """
     # Skip if running without live API credentials in CI preview mode
-    if not os.getenv("GROQ_API_KEY") or not os.getenv("GEMINI_API_KEY"):
-        pytest.skip("Skipping live LLM eval: GROQ_API_KEY or GEMINI_API_KEY not set")
+    if not os.getenv("GEMINI_API_KEY"):
+        pytest.skip("Skipping live LLM eval: GEMINI_API_KEY not set")
 
     ticket = TicketInput(
         ticket_id=case["ticket_id"],

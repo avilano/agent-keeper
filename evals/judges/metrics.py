@@ -59,7 +59,7 @@ GENERATED DRAFT RESPONSE:
 Evaluate the response and output the JSON evaluation:"""
 
         response = self.client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-3.5-flash",
             contents=[JUDGE_RUBRIC_PROMPT, user_prompt],
             config={
                 "response_mime_type": "application/json",

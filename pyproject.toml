@@ -21,10 +21,10 @@ test = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
     "pytest-html>=4.1.0",
-    "deepeval>=1.0.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["evals"]
 python_files = ["test_*.py"]
+pythonpath = ["."]
 asyncio_mode = "auto"
